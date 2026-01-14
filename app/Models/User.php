@@ -21,6 +21,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'phone',
     ];
 
     /**
@@ -44,5 +46,16 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function santri()
+    {
+        return $this->hasOne(Santri::class);
+    }
+
+    // Helper biar di controller enak bacanya: if($user->isAdmin())
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
     }
 }
