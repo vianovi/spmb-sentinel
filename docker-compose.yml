@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html:Z
+    # Agar container bisa akses database yang ada di OS laptop kamu (Fedora)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
