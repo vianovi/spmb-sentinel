@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PreRegistrationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Response;
@@ -10,58 +11,65 @@ use App\Models\Schedule;
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| Di sini tempat mendaftarkan semua route untuk aplikasi.
-| Struktur: Public Routes -> Utility Routes -> Authenticated Routes
-|
+| Structure:
+| 1. Public (Home)
+| 2. Pendaftaran Awal (Guest Logic) -> PreRegistrationController
+| 3. Utility (Download, etc)
+| 4. Authenticated Area (Dashboard, Profile)
+| 5. Auth Logic (Breeze)
 */
 
 // =========================================================================
-// 1. PUBLIC ROUTES (Bisa diakses tanpa login)
+// 1. PUBLIC HOME ROUTES
 // =========================================================================
 
 Route::get('/', function () {
-    // Logic: Mengambil data Gelombang Pendaftaran yang sedang aktif (is_active = 1)
-    // Menggunakan try-catch agar tidak error "Table not found" jika belum dimigrate
     try {
+        // Mengambil gelombang aktif agar Hero Section dinamis
         $activeWave = Schedule::where('is_active', true)->first();
     } catch (\Exception $e) {
+        // Fallback jika database belum migrate/kosong
         $activeWave = null;
     }
 
     return view('welcome', compact('activeWave'));
 })->name('home');
 
-Route::get('/cek-pendaftaran', function () {
-    // Placeholder untuk halaman cek status pendaftaran
-    return "<div style='display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;'>
-                <h1>🚧 Form Pendaftaran Awal Sedang Dibangun...</h1>
-            </div>";
-})->name('pendaftaran.cek');
+
+// =========================================================================
+// 2. MODUL PENDAFTARAN AWAL (GUEST / PRA-LOGIN)
+// =========================================================================
+
+// Halaman Form Wizard (Step 1, Step 2)
+// Logic: Cek kuota, isi biodata singkat, return draft_id
+Route::get('/daftar', [PreRegistrationController::class, 'show'])->name('pendaftaran.cek');
+
+// Simpan Step 1 (Identitas) -> POST
+Route::post('/daftar/step-1', [PreRegistrationController::class, 'storeStep1'])->name('pendaftaran.step1');
+
+// Simpan Step 2 (Kontak) -> PUT
+Route::put('/daftar/step-2/{id}', [PreRegistrationController::class, 'storeStep2'])->name('pendaftaran.step2');
 
 
 // =========================================================================
-// 2. UTILITY ROUTES (Download, Image serving, dll)
+// 3. UTILITY ROUTES
 // =========================================================================
 
 Route::get('/download-brosur', function () {
-    // Tentukan lokasi file (pastikan file ada di folder public/assets/)
-    // Kamu bisa ganti 'brosur.pdf' sesuai nama file aslimu (misal .jpg atau .png)
-    $filePath = public_path('assets/brosur.jpg');
+    // Pastikan kamu punya file ini di folder: public/assets/brosur.pdf
+    $filePath = public_path('assets/brosur.pdf');
 
-    // Validasi sederhana: Cek apakah file benar-benar ada
     if (!file_exists($filePath)) {
-        // Jika file belum di-upload developer, kembalikan ke home dengan pesan (opsional)
-        // atau tampilkan error 404
-        abort(404, 'File brosur belum tersedia di server.');
+        // Redirect balik jika file belum di-upload (mencegah error merah)
+        return redirect('/')->with('error', 'Maaf, brosur digital sedang diperbarui admin.');
     }
 
-    // Force Download: Browser akan memaksa file untuk didownload, bukan dipreview
-    return Response::download($filePath, 'Brosur-Resmi-Sentinel.pdf');
+    return Response::download($filePath, 'Brosur-Resmi-Sentinel-2026.pdf');
 })->name('download.brosur');
 
 
 // =========================================================================
-// 3. AUTHENTICATED ROUTES (Wajib Login)
+// 4. AUTHENTICATED ROUTES (Wajib Login)
 // =========================================================================
 
 Route::get('/dashboard', function () {
@@ -76,6 +84,6 @@ Route::middleware('auth')->group(function () {
 
 
 // =========================================================================
-// 4. AUTH ROUTES (Bawaan Laravel Breeze)
+// 5. AUTH LOGIC (Breeze)
 // =========================================================================
 require __DIR__.'/auth.php';
