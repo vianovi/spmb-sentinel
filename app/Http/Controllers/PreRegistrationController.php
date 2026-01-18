@@ -5,150 +5,203 @@ namespace App\Http\Controllers;
 use App\Models\RegistrationDraft;
 use App\Models\Schedule;
 use App\Models\Santri;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class PreRegistrationController extends Controller
 {
+    /**
+     * Nama cookie untuk menyimpan token draft di browser.
+     * Aku buat konsisten supaya gampang dicari kalau debug.
+     */
+    private string $cookieName = 'draft_token';
+
+    /**
+     * TTL token draft = 24 jam (sesuai keputusan kamu).
+     * Ini TTL cookie dan TTL token di database.
+     */
+    private int $tokenHours = 24;
+
+    /**
+     * Aku pakai method ini untuk:
+     * - menampilkan wizard
+     * - menentukan step aktif berdasarkan current_step
+     * - mengambil draft berdasarkan cookie token (token-only)
+     */
     public function show(Request $request)
     {
+        // Ambil gelombang aktif
         $activeWave = Schedule::where('is_active', true)->first();
         if (!$activeWave) {
             return redirect('/')->with('error', 'Pendaftaran sedang ditutup.');
         }
 
-        $draft = null;
+        $draft = $this->getDraftFromCookie($request);
+
+        // Behavior paling simpel:
+        // kalau cookie ada tapi draft tidak valid/expired => hapus cookie, mulai dari step 1
+        if ($request->cookie($this->cookieName) && !$draft) {
+            return redirect()
+                ->route('pendaftaran.cek')
+                ->withCookie(Cookie::forget($this->cookieName))
+                ->with('error', 'Draft pendaftaran kamu sudah kedaluwarsa. Silakan mulai lagi dari awal.');
+        }
+
         $viewStep = 1;
 
-        if ($request->has('draft_id')) {
-            $draft = RegistrationDraft::find($request->draft_id);
-            if ($draft) {
-                // ✅ FIX: Jangan kunci step ke 2.
-                // Ikuti current_step sebenarnya (1/2/3), kecuali mode edit.
-                if ($request->get('mode') === 'edit') {
-                    $viewStep = 1;
-                } else {
-                    $viewStep = (int)($draft->current_step ?? 1);
-                    if ($viewStep < 1) $viewStep = 1;
-                    if ($viewStep > 3) $viewStep = 3;
-                }
+        if ($draft) {
+            if ($request->get('mode') === 'edit') {
+                $viewStep = 1;
+            } else {
+                $viewStep = (int)($draft->current_step ?? 1);
+                $viewStep = max(1, min(3, $viewStep));
             }
         }
 
         return view('pendaftaran.form-wizard', compact('activeWave', 'draft', 'viewStep'));
     }
 
+    /* ==========================================================
+     * STEP 1 — IDENTITAS SANTRI
+     * ========================================================== */
     public function storeStep1(Request $request)
     {
-        $rules = [
+        $validated = $request->validate([
             'schedule_id'   => 'required|exists:schedules,id',
-            'nama_lengkap'  => ['required', 'string', 'min:3', 'max:80', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
-            'nisn'          => ['required', 'regex:/^[0-9]+$/', 'digits:10'],
-            'nik'           => ['required', 'regex:/^[0-9]+$/', 'digits:16'],
+            'nama_lengkap'  => ['required','string','min:3','max:80','regex:/^[a-zA-Z\s\.\'\-]+$/'],
+            'nisn'          => ['required','digits:10'],
+            'nik'           => ['required','digits:16'],
             'jenis_kelamin' => 'required|in:L,P',
-            'tempat_lahir'  => ['required', 'string', 'min:2', 'max:60', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
+            'tempat_lahir'  => ['required','string','min:2','max:60','regex:/^[a-zA-Z\s\.\'\-]+$/'],
             'tanggal_lahir' => 'required|date',
-        ];
-
-        $messages = [
-            'required'    => ':attribute wajib diisi.',
-            'digits'      => ':attribute harus berjumlah :digits digit angka.',
-            'in'          => 'Pilihan :attribute tidak valid.',
-            'regex'       => 'Format :attribute tidak valid.',
-            'max'         => ':attribute maksimal :max karakter.',
-            'min'         => ':attribute minimal :min karakter.',
-
-            'schedule_id.exists' => 'Gelombang pendaftaran tidak ditemukan.',
-            'nama_lengkap.regex' => 'Nama Lengkap hanya boleh berisi huruf, spasi, titik, tanda petik, atau tanda hubung.',
-            'tempat_lahir.regex' => 'Tempat Lahir hanya boleh berisi huruf, spasi, titik, tanda petik, atau tanda hubung.',
-            'nisn.regex'  => 'NISN harus berisi angka saja.',
-            'nik.regex'   => 'NIK harus berisi angka saja.',
-        ];
-
-        $attributes = [
-            'schedule_id'   => 'Gelombang Pendaftaran',
-            'nama_lengkap'  => 'Nama Lengkap',
-            'nisn'          => 'NISN',
-            'nik'           => 'NIK',
+        ], [
+            'required' => ':attribute wajib diisi.',
+            'digits' => ':attribute harus berjumlah :digits digit angka.',
+            'regex' => 'Format :attribute tidak valid.',
+            'in' => 'Pilihan :attribute tidak valid.',
+        ], [
+            'schedule_id' => 'Gelombang Pendaftaran',
+            'nama_lengkap' => 'Nama Lengkap',
+            'nisn' => 'NISN',
+            'nik' => 'NIK',
             'jenis_kelamin' => 'Jenis Kelamin',
-            'tempat_lahir'  => 'Tempat Lahir',
+            'tempat_lahir' => 'Tempat Lahir',
             'tanggal_lahir' => 'Tanggal Lahir',
-        ];
+        ]);
 
-        $validated = $request->validate($rules, $messages, $attributes);
+        /**
+         * HARD STOP:
+         * Kalau NIK/NISN sudah ada di santris => sudah terdaftar resmi.
+         */
+        $alreadySantri = Santri::where('nik', $validated['nik'])
+            ->orWhere('nisn', $validated['nisn'])
+            ->exists();
 
-        $nama  = $this->normalizeTitleName($validated['nama_lengkap']);
-        $lahir = $this->normalizeTitleName($validated['tempat_lahir']);
+        if ($alreadySantri) {
+            return back()
+                ->withErrors([
+                    'nik' => 'NIK / NISN sudah terdaftar. Silakan login dan lengkapi data di dashboard.'
+                ])
+                ->withInput();
+        }
 
-        $dataToSave = [
+        /**
+         * Token-only cookie:
+         * Aku ambil draft dari cookie dulu (kalau ada).
+         * Tapi demi kasus “mulai lagi” atau “cookie hilang”, aku juga support resume berbasis NIK/NISN
+         * (karena tabel draft sudah unique NIK/NISN).
+         */
+        $draftFromCookie = $this->getDraftFromCookie($request);
+
+        $draft = $draftFromCookie ?: RegistrationDraft::where('nik', $validated['nik'])
+            ->orWhere('nisn', $validated['nisn'])
+            ->latest('id')
+            ->first();
+
+        $data = [
             'schedule_id'   => $validated['schedule_id'],
-            'nama_lengkap'  => $nama,
+            'nama_lengkap'  => $this->normalizeTitleName($validated['nama_lengkap']),
             'nisn'          => $validated['nisn'],
             'nik'           => $validated['nik'],
             'jenis_kelamin' => $validated['jenis_kelamin'],
-            'tempat_lahir'  => $lahir,
+            'tempat_lahir'  => $this->normalizeTitleName($validated['tempat_lahir']),
             'tanggal_lahir' => $validated['tanggal_lahir'],
             'current_step'  => 2,
         ];
 
-        if (!empty($request->existing_draft_id)) {
-            $draft = RegistrationDraft::find($request->existing_draft_id);
-            if ($draft) {
-                $draft->update($dataToSave);
-            } else {
-                $draft = RegistrationDraft::create($dataToSave);
-            }
+        // kalau belum ada draft => create
+        if (!$draft) {
+            $draft = RegistrationDraft::create($data);
         } else {
-            $draft = RegistrationDraft::create($dataToSave);
+            $draft->update($data);
         }
 
-        return redirect()->route('pendaftaran.cek', ['draft_id' => $draft->id])
-            ->with('success', 'Data diri berhasil disimpan.');
+        /**
+         * Aku pastikan draft punya token cookie yang valid selama 24 jam.
+         * Ini inti token-only.
+         */
+        $this->issueOrRefreshToken($draft);
+
+        return redirect()
+            ->route('pendaftaran.cek')
+            ->withCookie($this->makeTokenCookie($draft->registration_token))
+            ->with('success', 'Data identitas berhasil disimpan.');
     }
 
+    /* ==========================================================
+     * STEP 2 — ALAMAT & KONTAK
+     * ========================================================== */
     public function storeStep2(Request $request, $id)
     {
-        $rules = [
-            'nama_ibu'   => ['required', 'string', 'min:3', 'max:80', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
-            'no_hp'      => ['required', 'regex:/^[0-9]+$/', 'digits_between:9,14'],
+        $draft = $this->getDraftFromCookie($request);
+
+        if (!$draft) {
+            return redirect()
+                ->route('pendaftaran.cek')
+                ->withCookie(Cookie::forget($this->cookieName))
+                ->with('error', 'Sesi draft kamu sudah berakhir. Silakan mulai lagi dari Step 1.');
+        }
+
+        /**
+         * Guard anti-tamper:
+         * Aku terima {id} dari URL supaya Blade kamu minim berubah,
+         * tapi aku tidak percaya itu. Aku wajib pastikan id URL = id draft milik token cookie.
+         */
+        if ((int)$id !== (int)$draft->id) {
+            abort(403, 'Akses tidak valid.');
+        }
+
+        // Step 2 tidak boleh kalau Step 1 belum beres
+        if ((int)$draft->current_step < 2) {
+            return redirect()
+                ->route('pendaftaran.cek')
+                ->with('error', 'Silakan lengkapi Step 1 terlebih dahulu.');
+        }
+
+        $validated = $request->validate([
+            'nama_ibu'   => ['required','string','min:3','max:80'],
+            'no_hp'      => ['required','digits_between:9,14'],
             'email'      => 'nullable|email',
 
             'addr_jalan' => 'required|string|min:5|max:150',
-            'addr_rt'    => ['required', 'regex:/^[0-9]+$/', 'digits_between:1,3'],
-            'addr_rw'    => ['required', 'regex:/^[0-9]+$/', 'digits_between:1,3'],
-            'addr_desa'  => ['required', 'string', 'min:2', 'max:60', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
-            'addr_kec'   => ['required', 'string', 'min:2', 'max:60', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
-            'addr_kab'   => ['required', 'string', 'min:2', 'max:60', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
-            'addr_prov'  => ['required', 'string', 'min:2', 'max:60', 'regex:/^[a-zA-Z\s\.\'\-]+$/'],
-        ];
-
-        $messages = [
+            'addr_rt'    => 'required|digits_between:1,3',
+            'addr_rw'    => 'required|digits_between:1,3',
+            'addr_desa'  => 'required|string|min:2|max:60',
+            'addr_kec'   => 'required|string|min:2|max:60',
+            'addr_kab'   => 'required|string|min:2|max:60',
+            'addr_prov'  => 'required|string|min:2|max:60',
+        ], [
             'required' => ':attribute wajib diisi.',
-            'regex' => 'Format :attribute tidak valid.',
             'digits_between' => ':attribute harus antara :min sampai :max digit.',
+            'email' => 'Format email tidak valid.',
             'min' => ':attribute minimal :min karakter.',
             'max' => ':attribute maksimal :max karakter.',
-            'email.email' => 'Format email tidak valid (contoh: nama@email.com).',
-
-            'nama_ibu.regex' => 'Nama Ibu Kandung hanya boleh berisi huruf, spasi, titik, tanda petik, atau tanda hubung.',
-            'no_hp.regex' => 'Nomor WhatsApp harus berisi angka saja tanpa spasi/tanda.',
-            'addr_desa.regex' => 'Kelurahan/Desa hanya boleh berisi huruf dan spasi.',
-            'addr_kec.regex' => 'Kecamatan hanya boleh berisi huruf dan spasi.',
-            'addr_kab.regex' => 'Kabupaten/Kota hanya boleh berisi huruf dan spasi.',
-            'addr_prov.regex' => 'Provinsi hanya boleh berisi huruf dan spasi.',
-            'addr_jalan.min' => 'Jalan/Dusun minimal 5 karakter agar alamat jelas.',
-        ];
-
-        $attributes = [
+        ], [
             'nama_ibu' => 'Nama Ibu Kandung',
-            'no_hp'    => 'Nomor WhatsApp',
-            'email'    => 'Email',
-
+            'no_hp' => 'Nomor WhatsApp',
+            'email' => 'Email',
             'addr_jalan' => 'Jalan / Dusun / Perumahan',
             'addr_rt' => 'RT',
             'addr_rw' => 'RW',
@@ -156,31 +209,27 @@ class PreRegistrationController extends Controller
             'addr_kec' => 'Kecamatan',
             'addr_kab' => 'Kabupaten/Kota',
             'addr_prov' => 'Provinsi',
-        ];
+        ]);
 
-        $validated = $request->validate($rules, $messages, $attributes);
+        // Normalisasi nomor HP -> 62xxxxxxxx
+        $hp = preg_replace('/\D+/', '', $validated['no_hp']);
+        $hp = ltrim($hp, '0');
+        if (!Str::startsWith($hp, '62')) $hp = '62' . $hp;
 
-        $namaIbu = $this->normalizeTitleName($validated['nama_ibu']);
+        // RT/RW -> 3 digit
+        $rt = str_pad((string)$validated['addr_rt'], 3, '0', STR_PAD_LEFT);
+        $rw = str_pad((string)$validated['addr_rw'], 3, '0', STR_PAD_LEFT);
+
+        // Rapikan alamat (spasi doang)
         $jalan = $this->normalizeSpaces($validated['addr_jalan']);
-
-        $rt = str_pad($validated['addr_rt'], 3, '0', STR_PAD_LEFT);
-        $rw = str_pad($validated['addr_rw'], 3, '0', STR_PAD_LEFT);
 
         $desa = $this->normalizeTitleName($validated['addr_desa']);
         $kec  = $this->normalizeTitleName($validated['addr_kec']);
         $kab  = $this->normalizeTitleName($validated['addr_kab']);
         $prov = $this->normalizeTitleName($validated['addr_prov']);
 
-        // No HP konsisten 62xxxxxxxx
-        $hp = preg_replace('/\D+/', '', $validated['no_hp']);
-        $hp = ltrim($hp, '0');
-        if (!Str::startsWith($hp, '62')) {
-            $hp = '62' . $hp;
-        }
-
-        // Email aman kalau kosong
         $email = (isset($validated['email']) && trim((string)$validated['email']) !== '')
-            ? strtolower(trim($validated['email']))
+            ? strtolower(trim((string)$validated['email']))
             : null;
 
         $alamatGabung = sprintf(
@@ -188,14 +237,12 @@ class PreRegistrationController extends Controller
             $jalan, $rt, $rw, $desa, $kec, $kab, $prov
         );
 
-        $draft = RegistrationDraft::findOrFail($id);
-
         $draft->update([
-            'nama_ibu' => $namaIbu,
+            'nama_ibu' => $this->normalizeTitleName($validated['nama_ibu']),
             'no_hp' => $hp,
             'email' => $email,
 
-            // ✅ Simpan detail supaya tidak hilang saat reload
+            // ✅ ini yang kemarin sering null kalau controller lupa simpan
             'addr_jalan' => $jalan,
             'addr_rt' => $rt,
             'addr_rw' => $rw,
@@ -208,109 +255,139 @@ class PreRegistrationController extends Controller
             'current_step' => 3,
         ]);
 
-        return redirect()->route('pendaftaran.cek', ['draft_id' => $draft->id])
+        // refresh token expiry biar 24 jam dihitung dari aktivitas terakhir (lebih nyaman)
+        $this->issueOrRefreshToken($draft);
+
+        return redirect()
+            ->route('pendaftaran.cek')
+            ->withCookie($this->makeTokenCookie($draft->registration_token))
             ->with('success', 'Data kontak dan alamat berhasil disimpan.');
     }
 
-    /**
-     * FINALISASI (STEP 3):
-     * - bikin user
-     * - bikin santri (sesuai migration + fillable Santri.php)
-     * - hapus draft
-     * - auto login
-     */
-    public function storeFinalize(Request $request, $id)
+    /* ==========================================================
+     * STEP 3 — NEXT KE /registrasi (belum kita bangun)
+     * ========================================================== */
+    public function nextToRegistrasi(Request $request, $id)
     {
-        $draft = RegistrationDraft::findOrFail($id);
+        $draft = $this->getDraftFromCookie($request);
 
-        // Email final: dari draft kalau ada, atau dari input step 3
-        $finalEmail = $draft->email ?: $request->input('email');
-        $finalEmail = $finalEmail ? strtolower(trim($finalEmail)) : null;
-
-        $rules = [
-            'asal_sekolah' => ['required', 'string', 'min:3', 'max:120'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'agreement' => ['accepted'],
-        ];
-
-        // Kalau draft belum punya email, wajib input dan unique di users
-        if (empty($draft->email)) {
-            $rules['email'] = ['required', 'email', Rule::unique('users', 'email')];
-        } else {
-            // input email di blade readonly, tapi tetap kita cek unique manual biar aman
-            $rules['email'] = ['nullable'];
+        if (!$draft) {
+            return redirect()
+                ->route('pendaftaran.cek')
+                ->withCookie(Cookie::forget($this->cookieName))
+                ->with('error', 'Sesi draft kamu sudah berakhir. Silakan mulai lagi dari Step 1.');
         }
 
-        $messages = [
-            'email.required' => 'Email wajib diisi untuk login.',
-            'email.email' => 'Format email tidak valid (contoh: nama@email.com).',
-            'email.unique' => 'Email sudah terdaftar. Gunakan email lain.',
+        if ((int)$id !== (int)$draft->id) {
+            abort(403, 'Akses tidak valid.');
+        }
 
+        if ((int)$draft->current_step < 3) {
+            return redirect()
+                ->route('pendaftaran.cek')
+                ->with('error', 'Silakan lengkapi Step 1 & 2 terlebih dahulu.');
+        }
+
+        $validated = $request->validate([
+            'asal_sekolah' => ['required', 'string', 'min:3', 'max:120'],
+            'agreement' => ['accepted'],
+            'email' => ['nullable', 'email'], // kalau draft email kosong, blade akan tampilkan input ini
+        ], [
             'asal_sekolah.required' => 'Asal sekolah wajib diisi.',
             'asal_sekolah.min' => 'Asal sekolah minimal 3 karakter.',
             'asal_sekolah.max' => 'Asal sekolah maksimal 120 karakter.',
-
-            'password.required' => 'Password wajib diisi.',
-            'password.min' => 'Password minimal 8 karakter.',
-            'password.confirmed' => 'Ulangi password harus sama dengan password.',
-
             'agreement.accepted' => 'Silakan centang pernyataan persetujuan terlebih dahulu.',
-        ];
+            'email.email' => 'Format email tidak valid.',
+        ]);
 
-        $validated = $request->validate($rules, $messages);
-
-        // Jika draft punya email, pastikan email itu belum dipakai user lain
-        if (!empty($draft->email)) {
-            $existsEmail = User::where('email', $finalEmail)->exists();
-            if ($existsEmail) {
-                return back()
-                    ->withErrors(['email' => 'Email sudah terdaftar. Gunakan email lain.'])
-                    ->withInput();
-            }
+        // kalau draft belum punya email, pakai email input
+        if (empty($draft->email) && !empty($validated['email'])) {
+            $draft->email = strtolower(trim((string)$validated['email']));
         }
 
-        // Sesuai migration santris: nik UNIQUE
-        $existsNik = Santri::where('nik', $draft->nik)->exists();
-        if ($existsNik) {
-            return back()->with('error', 'Data gagal diproses: NIK sudah terdaftar.')->withInput();
+        $draft->asal_sekolah = $this->normalizeSpaces($validated['asal_sekolah']);
+
+        // Double-check: jangan sampai sudah jadi santri
+        $existsSantri = Santri::where('nik', $draft->nik)
+            ->orWhere('nisn', $draft->nisn)
+            ->exists();
+
+        if ($existsSantri) {
+            return redirect()
+                ->route('pendaftaran.cek')
+                ->with('error', 'NIK / NISN sudah terdaftar. Silakan login dan lengkapi data di dashboard.');
         }
 
-        try {
-            DB::beginTransaction();
-
-            // ✅ Sesuai migration users kamu: hanya name, email, password
-            $user = User::create([
-                'name' => $draft->nama_lengkap,
-                'email' => $finalEmail,
-                'password' => Hash::make($validated['password']),
-            ]);
-
-            // ✅ Sesuai Santri.php fillable + migration santris
-            Santri::create([
-                'user_id' => $user->id,
-                'nik' => $draft->nik,
-                'nama_lengkap' => $draft->nama_lengkap,
-                'jenis_kelamin' => $draft->jenis_kelamin,
-                'tempat_lahir' => $draft->tempat_lahir,
-                'tanggal_lahir' => $draft->tanggal_lahir,
-                'alamat_lengkap' => $draft->alamat_lengkap,
-                'asal_sekolah' => $this->normalizeSpaces($validated['asal_sekolah']),
-                'status' => 'submitted',
-            ]);
-
-            // hapus draft agar tidak dobel
-            $draft->delete();
-
-            DB::commit();
-
-            Auth::login($user);
-
-            return redirect('/dashboard')->with('success', 'Akun berhasil dibuat. Selamat datang!');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal membuat akun. Silakan coba lagi.')->withInput();
+        // bikin kode pendaftaran kalau belum ada
+        if (empty($draft->registration_code)) {
+            $draft->registration_code = $this->makeRegistrationCode($draft->id);
         }
+
+        $draft->save();
+
+        // refresh token expiry (karena user aktif sampai step 3)
+        $this->issueOrRefreshToken($draft);
+
+        // redirect ke /registrasi pakai CODE saja (token tidak ikut URL)
+        // halaman ini memang belum dibuat, jadi nanti 404 itu wajar untuk sekarang.
+        return redirect('/registrasi?code=' . urlencode($draft->registration_code))
+            ->withCookie($this->makeTokenCookie($draft->registration_token));
     }
+
+    /* ==========================================================
+     * TOKEN ONLY - HELPERS
+     * ========================================================== */
+
+    private function getDraftFromCookie(Request $request): ?RegistrationDraft
+    {
+        $token = (string) $request->cookie($this->cookieName);
+        if (!$token) return null;
+
+        $draft = RegistrationDraft::where('registration_token', $token)->first();
+        if (!$draft) return null;
+
+        // expired => dianggap tidak valid
+        if (!$draft->isTokenValid()) {
+            return null;
+        }
+
+        return $draft;
+    }
+
+    private function issueOrRefreshToken(RegistrationDraft $draft): void
+    {
+        $draft->registration_token = $draft->registration_token ?: Str::random(64);
+        $draft->registration_token_expires_at = Carbon::now()->addHours($this->tokenHours);
+        $draft->save();
+    }
+
+    private function makeTokenCookie(string $token)
+    {
+        // cookie 24 jam, HttpOnly supaya JS tidak bisa baca token
+        // SameSite=Lax cukup aman untuk flow normal.
+        return Cookie::make(
+            $this->cookieName,
+            $token,
+            $this->tokenHours * 60, // menit
+            null,
+            null,
+            false,
+            true, // HttpOnly
+            false,
+            'Lax'
+        );
+    }
+
+    private function makeRegistrationCode(int $internalId): string
+    {
+        $year = date('Y');
+        $seq = str_pad((string)$internalId, 6, '0', STR_PAD_LEFT);
+        return "SPMB-{$year}-{$seq}";
+    }
+
+    /* ==========================================================
+     * FORMAT INPUT HELPERS
+     * ========================================================== */
 
     private function normalizeTitleName(string $value): string
     {

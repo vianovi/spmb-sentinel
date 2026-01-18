@@ -145,29 +145,31 @@
         }
     </style>
 </head>
+
 <body class="min-h-screen bg-slate-950 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-900">
+@php $s = $viewStep ?? 1; @endphp
 
 <div class="min-h-screen flex items-center justify-center py-6 px-4 md:px-8">
-    <div
-        class="relative w-full max-w-7xl 2xl:max-w-[92rem] rounded-3x loverflow-hidden shadow-card-soft bg-slate-900/80 border border-white/5 card-anim">
+    <div class="relative w-full max-w-7xl 2xl:max-w-[92rem] rounded-3xl overflow-hidden shadow-card-soft bg-slate-900/80 border border-white/5 card-anim">
 
         {{-- dynamic glow --}}
-        <div
-            class="pointer-events-none absolute -top-24 -right-16 w-72 h-72 bg-gradient-to-br from-amber-400/50 via-rose-400/40 to-sky-500/40 rounded-full blur-3xl opacity-70 animate-glow-move"></div>
-        <div
-            class="pointer-events-none absolute -bottom-24 -left-16 w-80 h-80 bg-gradient-to-tr from-emerald-400/35 via-cyan-400/35 to-amber-300/35 rounded-full blur-3xl opacity-70 animate-glow-move"></div>
+        <div class="pointer-events-none absolute -top-24 -right-16 w-72 h-72 bg-gradient-to-br from-amber-400/50 via-rose-400/40 to-sky-500/40 rounded-full blur-3xl opacity-70 animate-glow-move"></div>
+        <div class="pointer-events-none absolute -bottom-24 -left-16 w-80 h-80 bg-gradient-to-tr from-emerald-400/35 via-cyan-400/35 to-amber-300/35 rounded-full blur-3xl opacity-70 animate-glow-move"></div>
 
         <div class="relative grid md:grid-cols-[300px,1fr]">
-            {{-- SIDEBAR KIRI --}}
-            <div
-                class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 px-6 sm:px-8 py-6 sm:py-8 flex flex-col border-r border-white/5">
+
+            {{-- =========================
+               SIDEBAR KIRI
+               ========================= --}}
+            <div class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 px-6 sm:px-8 py-6 sm:py-8 flex flex-col border-r border-white/5">
                 <div class="flex items-center justify-between gap-3">
                     <a href="{{ url('/') }}"
                        class="inline-flex items-center gap-2 text-xs font-semibold text-amber-200/80 hover:text-amber-300 transition">
                         <i class="fa-solid fa-arrow-left text-[11px]"></i>
                         <span>Kembali ke Home</span>
                     </a>
-                    <span class="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-[10px] uppercase tracking-wide text-slate-300 !text-green-500 ">
+
+                    <span class="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-[10px] uppercase tracking-wide text-slate-300 !text-green-500">
                         Gelombang Aktif
                     </span>
                 </div>
@@ -187,74 +189,65 @@
                 </div>
 
                 {{-- Stepper desktop --}}
-                @php $s = $viewStep ?? 1; @endphp
                 <div class="space-y-6 mt-10">
                     {{-- Step 1 --}}
                     <div class="flex items-start gap-4">
                         <div class="relative">
-                            <div
-                                class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
                                 {{ $s >= 1 ? 'bg-gold-soft text-slate-900 shadow-lg shadow-amber-400/40' : 'bg-slate-800 text-slate-500' }}">
                                 1
                             </div>
                             <div class="hidden md:block absolute top-8 left-1/2 -translate-x-1/2 w-px h-12
-                                {{ $s >= 2 ? 'bg-gold-soft' : 'bg-slate-700' }}">
-                            </div>
+                                {{ $s >= 2 ? 'bg-gold-soft' : 'bg-slate-700' }}"></div>
                         </div>
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.18em]
-                                    {{ $s >= 1 ? 'text-amber-300' : 'text-slate-500' }}">Langkah 1
+                            <p class="text-[10px] uppercase tracking-[0.18em] {{ $s >= 1 ? 'text-amber-300' : 'text-slate-500' }}">
+                                Langkah 1
                             </p>
-                            <p class="text-sm font-semibold
-                                    {{ $s >= 1 ? 'text-white' : 'text-slate-400' }}">Identitas Santri</p>
-                            <p class="text-[11px] text-slate-400 mt-1">
-                                Data diri utama calon santri.
+                            <p class="text-sm font-semibold {{ $s >= 1 ? 'text-white' : 'text-slate-400' }}">
+                                Identitas Santri
                             </p>
+                            <p class="text-[11px] text-slate-400 mt-1">Data diri utama calon santri.</p>
                         </div>
                     </div>
 
                     {{-- Step 2 --}}
                     <div class="flex items-start gap-4">
                         <div class="relative">
-                            <div
-                                class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
                                 {{ $s >= 2 ? 'bg-gold-soft text-slate-900 shadow-lg shadow-amber-400/40' : 'bg-slate-800 text-slate-500' }}">
                                 2
                             </div>
                             <div class="hidden md:block absolute top-8 left-1/2 -translate-x-1/2 w-px h-12
-                                {{ $s >= 3 ? 'bg-gold-soft' : 'bg-slate-700' }}">
-                            </div>
+                                {{ $s >= 3 ? 'bg-gold-soft' : 'bg-slate-700' }}"></div>
                         </div>
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.18em]
-                                    {{ $s >= 2 ? 'text-amber-300' : 'text-slate-500' }}">Langkah 2
+                            <p class="text-[10px] uppercase tracking-[0.18em] {{ $s >= 2 ? 'text-amber-300' : 'text-slate-500' }}">
+                                Langkah 2
                             </p>
-                            <p class="text-sm font-semibold
-                                    {{ $s >= 2 ? 'text-white' : 'text-slate-400' }}">Kontak & Alamat</p>
-                            <p class="text-[11px] text-slate-400 mt-1">
-                                Domisili dan kontak orang tua.
+                            <p class="text-sm font-semibold {{ $s >= 2 ? 'text-white' : 'text-slate-400' }}">
+                                Kontak & Alamat
                             </p>
+                            <p class="text-[11px] text-slate-400 mt-1">Domisili dan kontak orang tua.</p>
                         </div>
                     </div>
 
-                    {{-- Step 3 (Review) --}}
+                    {{-- Step 3 --}}
                     <div class="flex items-start gap-4">
                         <div class="relative">
-                            <div
-                                class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
                                 {{ $s >= 3 ? 'bg-gold-soft text-slate-900 shadow-lg shadow-amber-400/40' : 'bg-slate-800 text-slate-500' }}">
                                 3
                             </div>
                         </div>
                         <div>
-                            <p class="text-[10px] uppercase tracking-[0.18em]
-                                    {{ $s >= 3 ? 'text-amber-300' : 'text-slate-500' }}">Langkah 3
+                            <p class="text-[10px] uppercase tracking-[0.18em] {{ $s >= 3 ? 'text-amber-300' : 'text-slate-500' }}">
+                                Langkah 3
                             </p>
-                            <p class="text-sm font-semibold
-                                    {{ $s >= 3 ? 'text-white' : 'text-slate-400' }}">Review & Akun</p>
-                            <p class="text-[11px] text-slate-400 mt-1">
-                                Cek kembali data sebelum final.
+                            <p class="text-sm font-semibold {{ $s >= 3 ? 'text-white' : 'text-slate-400' }}">
+                                Review & Akun
                             </p>
+                            <p class="text-[11px] text-slate-400 mt-1">Cek kembali data sebelum final.</p>
                         </div>
                     </div>
                 </div>
@@ -264,36 +257,31 @@
                 </div>
             </div>
 
-            {{-- KONTEN KANAN --}}
+            {{-- =========================
+               KONTEN KANAN
+               ========================= --}}
             <div class="flex-1 bg-slate-50/95 relative flex flex-col">
+
                 {{-- Mobile stepper --}}
                 <div class="border-b border-slate-200 px-4 sm:px-8 py-3 bg-white/80 backdrop-blur">
                     <div class="flex items-center justify-between text-xs font-semibold text-slate-500">
                         <div class="flex gap-4">
-                            <button class="{{ $s === 1 ? 'm-step-active' : 'm-step-inactive' }}">
-                                1. Identitas
-                            </button>
-                            <button class="{{ $s === 2 ? 'm-step-active' : 'm-step-inactive' }}">
-                                2. Kontak & Alamat
-                            </button>
-                            <button class="{{ $s === 3 ? 'm-step-active' : 'm-step-inactive' }}">
-                                3. Review
-                            </button>
+                            <button type="button" class="{{ $s === 1 ? 'm-step-active' : 'm-step-inactive' }}">1. Identitas</button>
+                            <button type="button" class="{{ $s === 2 ? 'm-step-active' : 'm-step-inactive' }}">2. Kontak & Alamat</button>
+                            <button type="button" class="{{ $s === 3 ? 'm-step-active' : 'm-step-inactive' }}">3. Review</button>
                         </div>
                         <div class="hidden sm:block text-[11px] text-slate-400">
-                            Fase Aktif: <span class="font-bold text-slate-700 !text-gold">
-                                {{ $activeWave->batch_name }}
-                            </span>
+                            Fase Aktif: <span class="font-bold text-slate-700">{{ $activeWave->batch_name }}</span>
                         </div>
                     </div>
                 </div>
 
                 {{-- SCROLLABLE FORM AREA --}}
                 <div class="flex-1 p-4 sm:p-8 md:p-10 overflow-y-auto">
+
                     {{-- Alert Success & Error --}}
                     @if (session('success'))
-                        <div
-                            class="mb-4 sm:mb-6 bg-emerald-50 border-l-4 border-emerald-500 px-4 py-3 rounded-r-xl shadow-sm text-sm text-emerald-800 flex gap-3">
+                        <div class="mb-4 sm:mb-6 bg-emerald-50 border-l-4 border-emerald-500 px-4 py-3 rounded-r-xl shadow-sm text-sm text-emerald-800 flex gap-3">
                             <i class="fa-solid fa-circle-check mt-0.5"></i>
                             <div>
                                 <div class="font-semibold mb-0.5">Berhasil</div>
@@ -303,8 +291,7 @@
                     @endif
 
                     @if (session('error'))
-                        <div
-                            class="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 px-4 py-3 rounded-r-xl shadow-sm text-sm text-red-800 flex gap-3">
+                        <div class="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 px-4 py-3 rounded-r-xl shadow-sm text-sm text-red-800 flex gap-3">
                             <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
                             <div>
                                 <div class="font-semibold mb-0.5">Terjadi Kesalahan</div>
@@ -314,8 +301,7 @@
                     @endif
 
                     @if ($errors->any())
-                        <div
-                            class="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 px-4 py-3 rounded-r-xl shadow-sm">
+                        <div class="mb-4 sm:mb-6 bg-red-50 border-l-4 border-red-500 px-4 py-3 rounded-r-xl shadow-sm">
                             <div class="flex items-center gap-2 text-red-700 font-semibold mb-2">
                                 <i class="fa-solid fa-circle-exclamation"></i>
                                 <span>Beberapa data perlu diperiksa lagi:</span>
@@ -328,7 +314,146 @@
                         </div>
                     @endif
 
-                    {{-- STEP 1: IDENTITAS SANTRI --}}
+                    {{-- =========================
+                       STEP 3: REVIEW & LANJUT REGISTRASI (DI KONTEN KANAN)
+                       ========================= --}}
+                    @if($viewStep == 3 && $draft)
+                        <div id="step3-container">
+                            <div class="mb-8 border-b border-slate-200 pb-4 flex items-end justify-between gap-4">
+                                <div>
+                                    <h3 class="text-2xl font-bold text-navy font-serif">Review & Lanjut Registrasi</h3>
+                                    <p class="text-sm text-slate-500 mt-1">
+                                        Pastikan data sudah benar. Setelah ini kamu akan diarahkan ke halaman pembuatan akun.
+                                    </p>
+                                </div>
+
+                                {{-- NOTE TOKEN-ONLY: aku sengaja hilangkan draft_id di URL supaya orang lain tidak bisa tebak-tebakan id --}}
+                                <a href="{{ route('pendaftaran.cek', ['mode' => 'edit']) }}"
+                                   class="text-slate-500 font-bold text-sm hover:text-navy transition flex items-center gap-2 group">
+                                    <span class="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center group-hover:bg-slate-300 transition">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </span>
+                                    <span>Edit Data</span>
+                                </a>
+                            </div>
+
+                            {{-- Kode Pendaftaran (ditampilkan) --}}
+                            <div class="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-5">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div>
+                                        <div class="text-xs uppercase font-bold text-slate-500 tracking-wider">Kode Pendaftaran</div>
+
+                                        {{-- NOTE SECURITY: aku tidak menampilkan kode mentah di layar (mengurangi risiko disalin/tersebar) --}}
+                                        <div class="text-xl font-extrabold text-navy mt-1">
+                                            {{ $draft->registration_code ? 'Sudah disiapkan oleh sistem' : 'Akan disiapkan setelah kamu menekan tombol lanjut' }}
+                                        </div>
+
+                                        <p class="text-xs text-slate-500 mt-2">
+                                            Demi keamanan, kode pendaftaran tidak ditampilkan di layar pada tahap ini.
+                                        </p>
+                                    </div>
+                                    <div class="hidden md:flex items-center gap-2 text-gold font-bold">
+                                        <i class="fa-solid fa-shield-halved"></i>
+                                        <span class="text-sm">Aman & Terverifikasi</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Preview data --}}
+                            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                                    <h4 class="font-extrabold text-navy mb-4 flex items-center gap-2">
+                                        <i class="fa-solid fa-id-card text-gold"></i> Identitas
+                                    </h4>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">Nama</span><span class="font-bold text-navy text-right">{{ $draft->nama_lengkap }}</span></div>
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">NISN</span><span class="font-bold text-navy">{{ $draft->nisn }}</span></div>
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">NIK</span><span class="font-bold text-navy">{{ $draft->nik }}</span></div>
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">Jenis Kelamin</span><span class="font-bold text-navy">{{ $draft->jenis_kelamin == 'L' ? 'Laki-laki' : 'Perempuan' }}</span></div>
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">TTL</span><span class="font-bold text-navy text-right">{{ $draft->tempat_lahir }}, {{ \Carbon\Carbon::parse($draft->tanggal_lahir)->format('d-m-Y') }}</span></div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                                    <h4 class="font-extrabold text-navy mb-4 flex items-center gap-2">
+                                        <i class="fa-solid fa-location-dot text-gold"></i> Kontak & Alamat
+                                    </h4>
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">Nama Ibu</span><span class="font-bold text-navy text-right">{{ $draft->nama_ibu }}</span></div>
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">WhatsApp</span><span class="font-bold text-navy">{{ $draft->no_hp }}</span></div>
+                                        <div class="flex justify-between gap-3"><span class="text-slate-500">Email</span><span class="font-bold text-navy text-right">{{ $draft->email ?? '-' }}</span></div>
+                                        <div class="pt-2">
+                                            <div class="text-slate-500 mb-1">Alamat Lengkap</div>
+                                            <div class="font-bold text-navy leading-relaxed">{{ $draft->alamat_lengkap }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Form step 3 (asal sekolah + email jika belum ada) --}}
+                            <form action="{{ route('pendaftaran.step3.next', $draft->id) }}" method="POST">
+                                @csrf
+
+                                <div class="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                                    <h4 class="font-extrabold text-navy mb-4 flex items-center gap-2">
+                                        <i class="fa-solid fa-user-check text-gold"></i> Data untuk Akun & Pendaftaran
+                                    </h4>
+
+                                    <div class="grid md:grid-cols-2 gap-6">
+                                        <div class="md:col-span-2">
+                                            <label class="label">Asal Sekolah <span>*</span></label>
+                                            <input type="text" name="asal_sekolah"
+                                                   value="{{ old('asal_sekolah', $draft->asal_sekolah ?? '') }}"
+                                                   class="input-field @error('asal_sekolah') input-error @enderror"
+                                                   placeholder="Contoh: SMP Negeri 3 Semarang"
+                                                   onblur="this.value = toTitleCase(this.value)">
+                                            @error('asal_sekolah') <span class="error-text">{{ $message }}</span> @enderror
+                                            <p class="hint">Tulis nama sekolah terakhir dengan jelas agar data rapi.</p>
+                                        </div>
+
+                                        @if(empty($draft->email))
+                                            <div class="md:col-span-2">
+                                                <label class="label">Email untuk Login <span>*</span></label>
+                                                <input type="email" name="email"
+                                                       value="{{ old('email') }}"
+                                                       class="input-field @error('email') input-error @enderror"
+                                                       placeholder="contoh: nama@email.com">
+                                                @error('email') <span class="error-text">{{ $message }}</span> @enderror
+                                                <p class="hint">Email ini dipakai untuk pembuatan akun.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    <div class="mt-5">
+                                        <label class="flex items-start gap-3 cursor-pointer select-none">
+                                            <input type="checkbox" name="agreement" value="1"
+                                                   class="mt-1 w-5 h-5 rounded border-gray-300 text-navy focus:ring-gold">
+                                            <div>
+                                                <div class="text-sm font-bold text-navy">
+                                                    Saya menyatakan data yang saya isi adalah benar.
+                                                </div>
+                                                <div class="text-xs text-slate-500 mt-1">
+                                                    Setelah lanjut, kamu akan diarahkan ke halaman pembuatan akun.
+                                                </div>
+                                                @error('agreement') <span class="error-text">{{ $message }}</span> @enderror
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end mt-8">
+                                    <button type="submit"
+                                            class="bg-navy hover:bg-navy/90 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-xl flex items-center gap-2 transform transition hover:-translate-y-1">
+                                        Lanjut Buat Akun <i class="fa-solid fa-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    @endif
+
+                    {{-- =========================
+                       STEP 1: IDENTITAS SANTRI
+                       ========================= --}}
                     @if($viewStep == 1)
                         <div id="step1-container">
                             <div class="mb-6 sm:mb-8 border-b border-slate-200 pb-4">
@@ -478,7 +603,9 @@
                         </div>
                     @endif
 
-                    {{-- STEP 2: KONTAK & ALAMAT --}}
+                    {{-- =========================
+                       STEP 2: KONTAK & ALAMAT
+                       ========================= --}}
                     @if($viewStep == 2 && $draft)
                         <div id="step2-container">
                             <div class="mb-6 sm:mb-8 border-b border-slate-200 pb-4 flex justify-between items-end gap-3">
@@ -659,10 +786,10 @@
                                 {{-- Footer Step 2 --}}
                                 <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-5 border-t border-slate-200">
                                     @if(isset($draft->id))
-                                        <a href="{{ route('pendaftaran.cek', ['draft_id' => $draft->id]) }}"
+                                        {{-- NOTE TOKEN-ONLY: kembali ke /daftar tanpa bawa id agar identitas draft tidak bocor lewat URL --}}
+                                        <a href="{{ route('pendaftaran.cek', ['draft_id' => $draft->id, 'mode' => 'edit']) }}"
                                            class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-navy transition group">
-                                            <span
-                                                class="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center group-hover:border-gold-soft group-hover:text-gold-soft transition">
+                                            <span class="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center group-hover:border-gold-soft group-hover:text-gold-soft transition">
                                                 <i class="fa-solid fa-arrow-left text-[11px]"></i>
                                             </span>
                                             <span>Kembali ke Ringkasan Data</span>
@@ -670,7 +797,7 @@
                                     @endif
 
                                     <button type="submit"
-                                            class="inline-flex items-center gap-2 rounded-full bg-gold-soft text-navy px-5 py-2.5 text-sm font-semibold shadow-md shadow-amber-300/50 hover:shadow-lg hover:-translate-y-0.5 transition">
+                                            class="inline-flex items-center gap-2 rounded-full bg-gold-soft text-navy px-5 py-2.5 text-sm font-semibold shadow-md shadow-amber-300/50 hover:shadow-lg hover:-translate-y-0.5 transition_ATTACHhition">
                                         Simpan &amp; Lanjut
                                         <i class="fa-solid fa-check-circle"></i>
                                     </button>
@@ -678,8 +805,10 @@
                             </form>
                         </div>
                     @endif
+
                 </div>
             </div>
+
         </div>
     </div>
 </div>
@@ -715,7 +844,7 @@
         }
     }
 
-    // ✅ FIX: Radio-card interaktif (klik kartu -> otomatis terpilih + efek aktif)
+    // Radio-card interaktif (klik kartu -> otomatis terpilih + efek aktif)
     function setupRadioCards() {
         const cards = document.querySelectorAll('.js-radio-card');
         if (!cards.length) return;
@@ -725,18 +854,14 @@
                 const groupName = card.dataset.group;
                 const value = card.dataset.value;
 
-                // 1) Matikan semua active di group yg sama
                 document.querySelectorAll(`.js-radio-card[data-group="${groupName}"]`)
                     .forEach(c => c.classList.remove('radio-card-active'));
 
-                // 2) Aktifkan yang diklik
                 card.classList.add('radio-card-active');
 
-                // 3) Set radio input menjadi checked
                 const radio = card.querySelector(`input[type="radio"][name="${groupName}"][value="${value}"]`);
                 if (radio) {
                     radio.checked = true;
-                    // trigger event change kalau ada listener lain
                     radio.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
@@ -746,7 +871,6 @@
     document.addEventListener('DOMContentLoaded', function () {
         setupRadioCards();
 
-        // animasi masuk
         if (window.anime) {
             anime({
                 targets: '.card-anim',

@@ -11,11 +11,11 @@ use App\Models\Schedule;
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| Structure:
+| Aku susun begini supaya alurnya jelas:
 | 1. Public (Home)
-| 2. Pendaftaran Awal (Guest Logic) -> PreRegistrationController
-| 3. Utility (Download, etc)
-| 4. Authenticated Area (Dashboard, Profile)
+| 2. Pendaftaran Awal (Guest / Token-only cookie)
+| 3. Utility
+| 4. Authenticated Area
 | 5. Auth Logic (Breeze)
 */
 
@@ -25,10 +25,8 @@ use App\Models\Schedule;
 
 Route::get('/', function () {
     try {
-        // Mengambil gelombang aktif agar Hero Section dinamis
         $activeWave = Schedule::where('is_active', true)->first();
     } catch (\Exception $e) {
-        // Fallback jika database belum migrate/kosong
         $activeWave = null;
     }
 
@@ -37,18 +35,25 @@ Route::get('/', function () {
 
 
 // =========================================================================
-// 2. MODUL PENDAFTARAN AWAL (GUEST / PRA-LOGIN)
+// 2. MODUL PENDAFTARAN AWAL (GUEST / TOKEN-ONLY COOKIE)
 // =========================================================================
 
-// Halaman Form Wizard (Step 1, Step 2)
-// Logic: Cek kuota, isi biodata singkat, return draft_id
+// Halaman wizard. Aku tidak pakai draft_id di URL lagi.
+// Draft diambil dari cookie token (kalau ada & masih aktif).
 Route::get('/daftar', [PreRegistrationController::class, 'show'])->name('pendaftaran.cek');
 
-// Simpan Step 1 (Identitas) -> POST
+// Simpan Step 1 -> POST
 Route::post('/daftar/step-1', [PreRegistrationController::class, 'storeStep1'])->name('pendaftaran.step1');
 
-// Simpan Step 2 (Kontak) -> PUT
+// Simpan Step 2 -> PUT
+// Catatan: masih pakai {id} supaya Blade kamu minim berubah.
+// Controller akan validasi: {id} harus cocok dengan draft milik token cookie.
 Route::put('/daftar/step-2/{id}', [PreRegistrationController::class, 'storeStep2'])->name('pendaftaran.step2');
+
+// Step 3: bikin registration_code (human-friendly) + pastikan token cookie masih valid,
+// lalu redirect ke /registrasi pakai CODE saja (token tidak ikut URL).
+Route::post('/daftar/step-3/{id}/next', [PreRegistrationController::class, 'nextToRegistrasi'])
+    ->name('pendaftaran.step3.next');
 
 
 // =========================================================================
@@ -56,11 +61,9 @@ Route::put('/daftar/step-2/{id}', [PreRegistrationController::class, 'storeStep2
 // =========================================================================
 
 Route::get('/download-brosur', function () {
-    // Pastikan kamu punya file ini di folder: public/assets/brosur.pdf
     $filePath = public_path('assets/brosur.pdf');
 
     if (!file_exists($filePath)) {
-        // Redirect balik jika file belum di-upload (mencegah error merah)
         return redirect('/')->with('error', 'Maaf, brosur digital sedang diperbarui admin.');
     }
 
