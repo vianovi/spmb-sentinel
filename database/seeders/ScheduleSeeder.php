@@ -10,61 +10,92 @@ class ScheduleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Kita ambil waktu sekarang
+        /**
+         * Aku pakai waktu sekarang sebagai acuan utama,
+         * supaya seeder ini selalu relevan kapan pun dijalankan.
+         */
         $now = Carbon::now();
 
-        // ==========================================
-        // 1. DATA GELOMBANG 1 (SUDAH TUTUP / NON-AKTIF)
-        // ==========================================
-        // Ceritanya gelombang ini mulai 3 bulan lalu dan tutup 1 bulan lalu
+        /**
+         * Sebelum insert data baru, aku pastikan
+         * tidak ada lebih dari satu gelombang yang aktif.
+         *
+         * Ini penting supaya:
+         * - Hero section tidak bingung
+         * - Logic pendaftaran konsisten
+         */
+        Schedule::query()->update(['is_active' => false]);
+
+        // ======================================================
+        // 1. GELOMBANG 1 (SUDAH TUTUP / NON-AKTIF)
+        // ======================================================
+        /**
+         * Cerita bisnis:
+         * - Gelombang ini dibuka 3 bulan lalu
+         * - Ditutup 1 bulan lalu
+         * - Kuota sudah penuh
+         */
         $wave1Close = $now->copy()->subMonth();
 
-        Schedule::create([
-            'batch_name' => 'Gelombang 1',
-            'academic_year' => 'TP 2026/2027',
-            'description' => 'Jalur Prestasi & Early Bird.',
+        Schedule::updateOrCreate(
+            [
+                // Aku pakai kombinasi ini sebagai "natural key"
+                'batch_name' => 'Gelombang 1',
+                'academic_year' => 'TP 2026/2027',
+            ],
+            [
+                'description' => 'Jalur Prestasi & Early Bird.',
 
-            // Waktu Lampau
-            'start_date' => $now->copy()->subMonths(3),
-            'end_date' => $wave1Close,
+                // Periode pendaftaran (lampau)
+                'start_date' => $now->copy()->subMonths(3),
+                'end_date' => $wave1Close,
 
-            // Jadwal Rinci (Juga Lampau)
-            'exam_date' => $wave1Close->copy()->addDays(5)->setTime(8, 0),
-            'announcement_date' => $wave1Close->copy()->addDays(8)->setTime(10, 0),
-            'reregistration_date' => $wave1Close->copy()->addDays(9)->setTime(8, 0),
+                // Jadwal lanjutan (semua sudah lewat)
+                'exam_date' => $wave1Close->copy()->addDays(5)->setTime(8, 0),
+                'announcement_date' => $wave1Close->copy()->addDays(8)->setTime(10, 0),
+                'reregistration_date' => $wave1Close->copy()->addDays(9)->setTime(8, 0),
 
-            'price' => 250000, // Lebih murah (early bird)
-            'quota' => 50,
-            'quota_filled' => 50, // Anggap saja penuh
-            'is_active' => false, // WAJIB FALSE KARENA SUDAH LEWAT
-        ]);
+                'price' => 250000, // Early bird lebih murah
+                'quota' => 50,
+                'quota_filled' => 50, // Anggap penuh
+                'is_active' => false, // WAJIB FALSE (historical data)
+            ]
+        );
 
-
-        // ==========================================
-        // 2. DATA GELOMBANG 2 (SEDANG BUKA / AKTIF)
-        // ==========================================
-        // Ceritanya buka hari ini sampai 2 bulan ke depan
+        // ======================================================
+        // 2. GELOMBANG 2 (SEDANG BUKA / AKTIF)
+        // ======================================================
+        /**
+         * Cerita bisnis:
+         * - Gelombang ini aktif sekarang
+         * - Ditutup 2 bulan ke depan
+         * - Masih tersedia kuota
+         */
         $wave2Close = $now->copy()->addMonths(2);
 
-        Schedule::create([
-            'batch_name' => 'Gelombang 2',
-            'academic_year' => 'TP 2026/2027',
-            'description' => 'Pendaftaran jalur reguler gelombang kedua.',
+        Schedule::updateOrCreate(
+            [
+                'batch_name' => 'Gelombang 2',
+                'academic_year' => 'TP 2026/2027',
+            ],
+            [
+                'description' => 'Pendaftaran jalur reguler gelombang kedua.',
 
-            // Waktu Sekarang & Masa Depan
-            'start_date' => $now,
-            'end_date' => $wave2Close,
+                // Periode aktif
+                'start_date' => $now,
+                'end_date' => $wave2Close,
 
-            // Jadwal Rinci
-            'exam_date' => $wave2Close->copy()->addDays(5)->setTime(8, 0),
-            'announcement_date' => $wave2Close->copy()->addDays(8)->setTime(10, 0),
-            'reregistration_date' => $wave2Close->copy()->addDays(9)->setTime(8, 0),
+                // Jadwal ke depan
+                'exam_date' => $wave2Close->copy()->addDays(5)->setTime(8, 0),
+                'announcement_date' => $wave2Close->copy()->addDays(8)->setTime(10, 0),
+                'reregistration_date' => $wave2Close->copy()->addDays(9)->setTime(8, 0),
 
-            'price' => 300000,
-            'quota' => 70,
-            'quota_filled' => 12, // Ceritanya baru ada 12 pendaftar
-            'is_active' => true, // WAJIB TRUE BIAR MUNCUL DI WEB
-        ]);
+                'price' => 300000,
+                'quota' => 70,
+                'quota_filled' => 12, // Simulasi: sudah ada 12 pendaftar
+                'is_active' => true, // INI YANG AKAN TERBACA OLEH SISTEM
+            ]
+        );
     }
 }
 

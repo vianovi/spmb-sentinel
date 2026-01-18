@@ -10,16 +10,26 @@ class SantriFactory extends Factory
     public function definition(): array
     {
         return [
-            // Kita akan override user_id saat seeding nanti
+            // override user_id saat seeding bila diperlukan
             'user_id' => User::factory(),
-            // FIX: Gunakan numerify untuk generate 16 digit angka random (NIK Style)
+
+            // 16 digit angka
             'nik' => $this->faker->unique()->numerify('################'),
+
+            // 10 digit angka (NISN)
+            'nisn' => $this->faker->unique()->numerify('##########'),
+
             'nama_lengkap' => $this->faker->name(),
             'jenis_kelamin' => $this->faker->randomElement(['L', 'P']),
             'tempat_lahir' => $this->faker->city(),
-            'tanggal_lahir' => $this->faker->date('Y-m-d', '2010-01-01'), // Umur santri wajar
+
+            // Tanggal lahir santri (mis: umur 10-17 tahun)
+            // Faker dateTimeBetween lebih stabil untuk range umur
+            'tanggal_lahir' => $this->faker->dateTimeBetween('-17 years', '-10 years')->format('Y-m-d'),
+
             'alamat_lengkap' => $this->faker->address(),
             'asal_sekolah' => 'SMP ' . $this->faker->company(),
+
             'status' => $this->faker->randomElement(['draft', 'submitted', 'verified']),
         ];
     }
