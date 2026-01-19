@@ -1,0 +1,173 @@
+.
+├── app
+│   ├── Http
+│   │   ├── Controllers
+│   │   │   ├── Auth
+│   │   │   │   ├── AuthenticatedSessionController.php
+│   │   │   │   ├── ConfirmablePasswordController.php
+│   │   │   │   ├── EmailVerificationNotificationController.php
+│   │   │   │   ├── EmailVerificationPromptController.php
+│   │   │   │   ├── NewPasswordController.php
+│   │   │   │   ├── PasswordController.php
+│   │   │   │   ├── PasswordResetLinkController.php
+│   │   │   │   ├── RegisteredUserController.php
+│   │   │   │   └── VerifyEmailController.php
+│   │   │   ├── Controller.php
+│   │   │   ├── PreRegistrationController.php
+│   │   │   └── ProfileController.php
+│   │   └── Requests
+│   │       ├── Auth
+│   │       │   └── LoginRequest.php
+│   │       └── ProfileUpdateRequest.php
+│   ├── Models
+│   │   ├── Document.php
+│   │   ├── RegistrationDraft.php
+│   │   ├── Santri.php
+│   │   ├── Schedule.php
+│   │   └── User.php
+│   ├── Providers
+│   │   └── AppServiceProvider.php
+│   └── View
+│       └── Components
+│           ├── AppLayout.php
+│           └── GuestLayout.php
+├── artisan
+├── bootstrap
+│   ├── app.php
+│   ├── cache
+│   │   ├── .gitignore
+│   │   ├── packages.php
+│   │   └── services.php
+│   └── providers.php
+├── composer.json
+├── composer.lock
+├── config
+│   ├── app.php
+│   ├── auth.php
+│   ├── cache.php
+│   ├── database.php
+│   ├── filesystems.php
+│   ├── logging.php
+│   ├── mail.php
+│   ├── queue.php
+│   ├── services.php
+│   └── session.php
+├── database
+│   ├── database.sqlite
+│   ├── factories
+│   │   ├── DocumentFactory.php
+│   │   ├── SantriFactory.php
+│   │   └── UserFactory.php
+│   ├── .gitignore
+│   ├── migrations
+│   │   ├── 0001_01_01_000000_create_users_table.php
+│   │   ├── 0001_01_01_000001_create_cache_table.php
+│   │   ├── 0001_01_01_000002_create_jobs_table.php
+│   │   ├── 2026_01_14_144130_add_role_and_phone_to_users_table.php
+│   │   ├── 2026_01_14_144144_create_santris_table.php
+│   │   ├── 2026_01_14_144156_create_documents_table.php
+│   │   ├── 2026_01_15_000413_create_schedules_table.php
+│   │   └── 2026_01_17_110326_create_registration_drafts_table.php
+│   └── seeders
+│       ├── DatabaseSeeder.php
+│       └── ScheduleSeeder.php
+├── docker-compose.yml
+├── Dockerfile
+├── .editorconfig
+├── .env
+├── .env.example
+├── er->password = bcrypt('password');
+├── .gitattributes
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── phpunit.xml
+├── postcss.config.js
+├── project-structure.txt
+├── public
+│   ├── assets
+│   │   ├── about-1.jpg
+│   │   ├── brosur.jpg
+│   │   ├── brosur.pdf
+│   │   ├── header.jpg
+│   │   ├── menu-7.jpg
+│   │   ├── room-1.jpg
+│   │   ├── room-2.jpg
+│   │   ├── test-thumbnail.jpg
+│   │   └── test-video.mp4
+│   ├── build
+│   │   ├── assets
+│   │   │   ├── app-BXS-Op9n.js
+│   │   │   └── app-CSvgMtJ0.css
+│   │   └── manifest.json
+│   ├── favicon.ico
+│   ├── .htaccess
+│   ├── index.php
+│   └── robots.txt
+├── README.md
+├── resources
+│   ├── css
+│   │   └── app.css
+│   ├── js
+│   │   ├── app.js
+│   │   └── bootstrap.js
+│   └── views
+│       ├── auth
+│       │   ├── confirm-password.blade.php
+│       │   ├── forgot-password.blade.php
+│       │   ├── login.blade.php
+│       │   ├── register.blade.php
+│       │   ├── reset-password.blade.php
+│       │   └── verify-email.blade.php
+│       ├── components
+│       │   ├── application-logo.blade.php
+│       │   ├── auth-session-status.blade.php
+│       │   ├── danger-button.blade.php
+│       │   ├── dropdown.blade.php
+│       │   ├── dropdown-link.blade.php
+│       │   ├── input-error.blade.php
+│       │   ├── input-label.blade.php
+│       │   ├── modal.blade.php
+│       │   ├── nav-link.blade.php
+│       │   ├── primary-button.blade.php
+│       │   ├── responsive-nav-link.blade.php
+│       │   ├── secondary-button.blade.php
+│       │   └── text-input.blade.php
+│       ├── dashboard.blade.php
+│       ├── layouts
+│       │   ├── app.blade.php
+│       │   ├── guest.blade.php
+│       │   ├── landing.blade.php
+│       │   └── navigation.blade.php
+│       ├── pendaftaran
+│       │   └── form-wizard.blade.php
+│       ├── profile
+│       │   ├── edit.blade.php
+│       │   └── partials
+│       │       ├── delete-user-form.blade.php
+│       │       ├── update-password-form.blade.php
+│       │       └── update-profile-information-form.blade.php
+│       └── welcome.blade.php
+├── routes
+│   ├── auth.php
+│   ├── console.php
+│   └── web.php
+├── tailwind.config.js
+├── tests
+│   ├── Feature
+│   │   ├── Auth
+│   │   │   ├── AuthenticationTest.php
+│   │   │   ├── EmailVerificationTest.php
+│   │   │   ├── PasswordConfirmationTest.php
+│   │   │   ├── PasswordResetTest.php
+│   │   │   ├── PasswordUpdateTest.php
+│   │   │   └── RegistrationTest.php
+│   │   ├── ExampleTest.php
+│   │   └── ProfileTest.php
+│   ├── Pest.php
+│   ├── TestCase.php
+│   └── Unit
+│       └── ExampleTest.php
+└── vite.config.js
+
+37 directories, 134 files

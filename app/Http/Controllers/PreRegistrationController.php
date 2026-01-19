@@ -40,14 +40,22 @@ class PreRegistrationController extends Controller
 
         $draft = $this->getDraftFromCookie($request);
 
-        // Behavior paling simpel:
-        // kalau cookie ada tapi draft tidak valid/expired => hapus cookie, mulai dari step 1
-        if ($request->cookie($this->cookieName) && !$draft) {
-            return redirect()
-                ->route('pendaftaran.cek')
-                ->withCookie(Cookie::forget($this->cookieName))
-                ->with('error', 'Draft pendaftaran kamu sudah kedaluwarsa. Silakan mulai lagi dari awal.');
+        /**
+         * FIX: kalau draft valid, jangan tampilkan error “draft expired/not found”
+         * yang mungkin nyangkut dari redirect sebelumnya.
+         */
+        if ($draft) {
+            $err = (string) session('error');
+            if (
+                Str::contains($err, 'Draft pendaftaran') ||
+                Str::contains($err, 'tidak ditemukan') ||
+                Str::contains($err, 'kedaluwarsa') ||
+                Str::contains($err, 'Sesi draft kamu sudah berakhir')
+            ) {
+                session()->forget('error');
+            }
         }
+
 
         $viewStep = 1;
 
@@ -241,8 +249,6 @@ class PreRegistrationController extends Controller
             'nama_ibu' => $this->normalizeTitleName($validated['nama_ibu']),
             'no_hp' => $hp,
             'email' => $email,
-
-            // ✅ ini yang kemarin sering null kalau controller lupa simpan
             'addr_jalan' => $jalan,
             'addr_rt' => $rt,
             'addr_rw' => $rw,
@@ -265,49 +271,76 @@ class PreRegistrationController extends Controller
     }
 
     /* ==========================================================
-     * STEP 3 — NEXT KE /registrasi (belum kita bangun)
+     * STEP 3 — NEXT KE /registrasi (TOKEN-ONLY COOKIE)
      * ========================================================== */
     public function nextToRegistrasi(Request $request, $id)
     {
+        // Aku selalu ambil draft dari cookie (token-only)
         $draft = $this->getDraftFromCookie($request);
 
         if (!$draft) {
             return redirect()
-                ->route('pendaftaran.cek')
-                ->withCookie(Cookie::forget($this->cookieName))
-                ->with('error', 'Sesi draft kamu sudah berakhir. Silakan mulai lagi dari Step 1.');
+                ->route('register')
+                ->withCookie($this->makeTokenCookie($draft->registration_token));
         }
 
-        if ((int)$id !== (int)$draft->id) {
+        /**
+         * Guard: id di URL harus sama dengan draft yang ada di cookie.
+         * Ini mencegah user asal tebakan id orang lain.
+         */
+        if ((int) $id !== (int) $draft->id) {
             abort(403, 'Akses tidak valid.');
         }
 
-        if ((int)$draft->current_step < 3) {
+        /**
+         * Guard: pastikan memang sudah sampai step 3
+         */
+        if ((int) $draft->current_step < 3) {
             return redirect()
                 ->route('pendaftaran.cek')
                 ->with('error', 'Silakan lengkapi Step 1 & 2 terlebih dahulu.');
         }
 
+        /**
+         * Validasi Step 3:
+         * - Asal sekolah wajib
+         * - Agreement wajib
+         * - Email: wajib kalau draft->email masih kosong
+         */
         $validated = $request->validate([
             'asal_sekolah' => ['required', 'string', 'min:3', 'max:120'],
-            'agreement' => ['accepted'],
-            'email' => ['nullable', 'email'], // kalau draft email kosong, blade akan tampilkan input ini
+            'agreement'    => ['accepted'],
+            'email'        => empty($draft->email)
+                ? ['required', 'email']
+                : ['nullable', 'email'],
         ], [
             'asal_sekolah.required' => 'Asal sekolah wajib diisi.',
-            'asal_sekolah.min' => 'Asal sekolah minimal 3 karakter.',
-            'asal_sekolah.max' => 'Asal sekolah maksimal 120 karakter.',
-            'agreement.accepted' => 'Silakan centang pernyataan persetujuan terlebih dahulu.',
-            'email.email' => 'Format email tidak valid.',
+            'asal_sekolah.min'      => 'Asal sekolah minimal 3 karakter.',
+            'asal_sekolah.max'      => 'Asal sekolah maksimal 120 karakter.',
+            'agreement.accepted'    => 'Silakan centang pernyataan persetujuan terlebih dahulu.',
+            'email.required'        => 'Email wajib diisi untuk membuat akun.',
+            'email.email'           => 'Format email tidak valid.',
         ]);
 
-        // kalau draft belum punya email, pakai email input
-        if (empty($draft->email) && !empty($validated['email'])) {
-            $draft->email = strtolower(trim((string)$validated['email']));
+        // Kalau draft belum punya email, aku set dari input step 3
+        if (empty($draft->email)) {
+            $draft->email = strtolower(trim((string) ($validated['email'] ?? '')));
         }
 
+        // Guard ekstra: kalau tetap kosong (antisipasi edge case)
+        if (empty($draft->email)) {
+            return redirect()
+                ->route('pendaftaran.cek', ['draft_id' => $draft->id])
+                ->with('error', 'Email belum tersimpan. Silakan isi email untuk lanjut registrasi.');
+        }
+
+        // Normalisasi asal sekolah biar rapi
         $draft->asal_sekolah = $this->normalizeSpaces($validated['asal_sekolah']);
 
-        // Double-check: jangan sampai sudah jadi santri
+        /**
+         * Double-check: jangan sampai NIK / NISN sudah jadi santri
+         * (antisipasi race condition / user back-forward / dsb)
+         */
         $existsSantri = Santri::where('nik', $draft->nik)
             ->orWhere('nisn', $draft->nisn)
             ->exists();
@@ -318,19 +351,19 @@ class PreRegistrationController extends Controller
                 ->with('error', 'NIK / NISN sudah terdaftar. Silakan login dan lengkapi data di dashboard.');
         }
 
-        // bikin kode pendaftaran kalau belum ada
+        // Bikin kode pendaftaran kalau belum ada (internal reference saja)
         if (empty($draft->registration_code)) {
             $draft->registration_code = $this->makeRegistrationCode($draft->id);
         }
 
+        // Save perubahan step 3
         $draft->save();
 
-        // refresh token expiry (karena user aktif sampai step 3)
+        // Refresh token expiry (user aktif sampai step 3)
         $this->issueOrRefreshToken($draft);
 
-        // redirect ke /registrasi pakai CODE saja (token tidak ikut URL)
-        // halaman ini memang belum dibuat, jadi nanti 404 itu wajar untuk sekarang.
-        return redirect('/registrasi?code=' . urlencode($draft->registration_code))
+        return redirect()
+            ->route('register')
             ->withCookie($this->makeTokenCookie($draft->registration_token));
     }
 
