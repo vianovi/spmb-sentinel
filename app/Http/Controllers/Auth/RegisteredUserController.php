@@ -2,58 +2,57 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Actions\Registration\ConvertDraftToSantriAction;
 use App\Http\Controllers\Controller;
 use App\Models\RegistrationDraft;
 use App\Models\Santri;
 use App\Models\User;
-use App\Services\RegistrationDraftTokenService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class RegisteredUserController extends Controller
 {
-    public function __construct(
-        private readonly RegistrationDraftTokenService $tokenService
-    ) {}
-
     /**
-     * Tampilkan halaman buat password.
-     * Email & ringkasan data diambil dari draft via cookie.
+     * Aku samakan persis dengan PreRegistrationController
+     * supaya token-only cookie flow konsisten end-to-end.
      */
+    private string $cookieName = 'draft_token';
+
     public function create(Request $request)
     {
-        $draft = $this->tokenService->loadDraftFromRequest($request);
+        $draft = $this->getDraftFromCookie($request);
 
         if (!$draft) {
             return redirect()
                 ->route('pendaftaran.cek')
-                ->withCookie($this->tokenService->forgetCookie())
-                ->with('error', 'Draft pendaftaran tidak ditemukan atau sudah kedaluwarsa. Silakan mulai dari Step 1.');
+                ->withCookie(Cookie::forget($this->cookieName))
+                ->with('error', 'Draft pendaftaran tidak ditemukan / sudah kedaluwarsa. Silakan ulang dari Step 1.');
         }
 
-        // Guard: draft belum selesai step 3
+        // Guard: jangan izinkan masuk halaman register kalau draft belum step 3
         if ((int) $draft->current_step < 3) {
             return redirect()
                 ->route('pendaftaran.cek')
                 ->with('error', 'Silakan selesaikan Step 1–3 terlebih dahulu.');
         }
 
-        // Guard: email wajib ada di draft sebelum bikin akun
+        // Guard: draft harus punya email sebelum bikin akun
         if (empty($draft->email)) {
             return redirect()
                 ->route('pendaftaran.cek')
-                ->with('error', 'Email belum tersimpan. Silakan lengkapi email pada Step 2 atau 3.');
+                ->with('error', 'Email belum tersimpan. Silakan isi email pada Step 3.');
         }
 
-        // Guard: kalau NIK/NISN sudah jadi santri, arahkan login
-        $sudahTerdaftar = Santri::where('nik', $draft->nik)
+        // Guard ekstra: kalau NIK/NISN sudah jadi santri, arahkan login
+        $existsSantri = Santri::where('nik', $draft->nik)
             ->orWhere('nisn', $draft->nisn)
             ->exists();
 
-        if ($sudahTerdaftar) {
+        if ($existsSantri) {
             return redirect()
                 ->route('login')
                 ->with('error', 'Data kamu sudah terdaftar. Silakan login.');
@@ -62,63 +61,95 @@ class RegisteredUserController extends Controller
         return view('auth.register', compact('draft'));
     }
 
-    /**
-     * Proses pembuatan akun:
-     * 1. Validasi password
-     * 2. Guard duplikasi
-     * 3. Jalankan ConvertDraftToSantriAction dalam transaksi
-     * 4. Login otomatis → redirect dashboard
-     */
-    public function store(Request $request, ConvertDraftToSantriAction $action)
+    public function store(Request $request)
     {
-        $draft = $this->tokenService->loadDraftFromRequest($request);
+        $draft = $this->getDraftFromCookie($request);
 
         if (!$draft) {
             return redirect()
                 ->route('pendaftaran.cek')
-                ->withCookie($this->tokenService->forgetCookie())
-                ->with('error', 'Draft pendaftaran tidak ditemukan atau sudah kedaluwarsa. Silakan mulai dari Step 1.');
+                ->withCookie(Cookie::forget($this->cookieName))
+                ->with('error', 'Draft pendaftaran tidak ditemukan / sudah kedaluwarsa. Silakan ulang dari Step 1.');
         }
 
+        // Email final: aku pakai dari draft (token-only)
         $finalEmail = strtolower(trim((string) $draft->email));
 
         $request->validate([
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
-            'password.required'  => 'Password wajib diisi.',
-            'password.min'       => 'Password minimal 8 karakter.',
-            'password.confirmed' => 'Konfirmasi password tidak cocok.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.confirmed' => 'Ulangi password harus sama dengan password.',
         ]);
 
-        // Guard: email tidak boleh sudah dipakai
-        if (User::where('email', $finalEmail)->exists()) {
+        // Guard: email tidak boleh sudah dipakai user lain
+        $emailExists = User::where('email', $finalEmail)->exists();
+        if ($emailExists) {
             return back()
-                ->withErrors(['email' => 'Email ini sudah terdaftar. Silakan login.'])
+                ->withErrors(['email' => 'Email sudah terdaftar. Silakan login.'])
                 ->withInput();
         }
 
-        // Guard: NIK/NISN tidak boleh dobel (race condition prevention)
-        $sudahTerdaftar = Santri::where('nik', $draft->nik)
+        // Guard: NIK/NISN tidak boleh dobel jadi santri
+        $existsSantri = Santri::where('nik', $draft->nik)
             ->orWhere('nisn', $draft->nisn)
             ->exists();
 
-        if ($sudahTerdaftar) {
+        if ($existsSantri) {
             return redirect()
                 ->route('login')
-                ->with('error', 'Akun sudah pernah dibuat. Silakan login.');
+                ->with('error', 'Akun kamu sudah pernah dibuat. Silakan login.');
         }
 
-        // Jalankan konversi dalam transaksi — kalau ada yang gagal, semua rollback
-        $user = DB::transaction(
-            fn () => $action->execute($draft, $request->password)
-        );
+        DB::transaction(function () use ($draft, $finalEmail, $request) {
+            $user = User::create([
+                'name' => $draft->nama_lengkap,
+                'email' => $finalEmail,
+                'password' => Hash::make($request->password),
+            ]);
 
-        event(new Registered($user));
-        Auth::login($user);
+            Santri::create([
+                'user_id' => $user->id,
+                'nik' => $draft->nik,
+                'nisn' => $draft->nisn,
+                'nama_lengkap' => $draft->nama_lengkap,
+                'jenis_kelamin' => $draft->jenis_kelamin,
+                'tempat_lahir' => $draft->tempat_lahir,
+                'tanggal_lahir' => $draft->tanggal_lahir,
+                'alamat_lengkap' => $draft->alamat_lengkap,
+                'asal_sekolah' => $draft->asal_sekolah,
+                'status' => 'submitted',
+            ]);
+
+            // Draft tidak dibutuhkan lagi setelah akun dibuat
+            $draft->delete();
+
+            event(new Registered($user));
+            Auth::login($user);
+        });
 
         return redirect()
             ->route('dashboard')
-            ->withCookie($this->tokenService->forgetCookie())
-            ->with('success', 'Akun berhasil dibuat. Selamat datang, ' . $user->name . '!');
+            ->withCookie(Cookie::forget($this->cookieName))
+            ->with('success', 'Akun berhasil dibuat. Selamat datang!');
+    }
+
+    /**
+     * Aku bikin helper kecil biar create() dan store() konsisten.
+     */
+    private function getDraftFromCookie(Request $request): ?RegistrationDraft
+    {
+        $token = (string) $request->cookie($this->cookieName);
+        if (!$token) return null;
+
+        $draft = RegistrationDraft::where('registration_token', $token)->first();
+        if (!$draft) return null;
+
+        // Token expired = dianggap tidak valid
+        if (empty($draft->registration_token_expires_at)) return null;
+        if (Carbon::now()->greaterThan(Carbon::parse($draft->registration_token_expires_at))) return null;
+
+        return $draft;
     }
 }
