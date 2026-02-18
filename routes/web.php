@@ -2,21 +2,23 @@
 
 use App\Http\Controllers\PreRegistrationController;
 use App\Http\Controllers\ProfileController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Santri\DashboardController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Route;
 use App\Models\Schedule;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Aku susun begini supaya alurnya jelas:
+| Urutan:
 | 1. Public (Home)
 | 2. Pendaftaran Awal (Guest / Token-only cookie)
 | 3. Utility
-| 4. Authenticated Area
-| 5. Auth Logic (Breeze)
+| 4. Dashboard — role-based redirect
+| 5. Santri Routes (auth + role:santri)
+| 6. Auth Logic (Breeze)
 */
 
 // =========================================================================
@@ -38,22 +40,10 @@ Route::get('/', function () {
 // 2. MODUL PENDAFTARAN AWAL (GUEST / TOKEN-ONLY COOKIE)
 // =========================================================================
 
-// Halaman wizard. Aku tidak pakai draft_id di URL lagi.
-// Draft diambil dari cookie token (kalau ada & masih aktif).
 Route::get('/daftar', [PreRegistrationController::class, 'show'])->name('pendaftaran.cek');
-
-// Simpan Step 1 -> POST
 Route::post('/daftar/step-1', [PreRegistrationController::class, 'storeStep1'])->name('pendaftaran.step1');
-
-// Simpan Step 2 -> PUT
-// Catatan: masih pakai {id} supaya Blade kamu minim berubah.
-// Controller akan validasi: {id} harus cocok dengan draft milik token cookie.
 Route::put('/daftar/step-2/{id}', [PreRegistrationController::class, 'storeStep2'])->name('pendaftaran.step2');
-
-// Step 3: bikin registration_code (human-friendly) + pastikan token cookie masih valid,
-// lalu redirect ke /registrasi pakai CODE saja (token tidak ikut URL).
-Route::post('/daftar/step-3/{id}/next', [PreRegistrationController::class, 'nextToRegistrasi'])
-    ->name('pendaftaran.step3.next');
+Route::post('/daftar/step-3/{id}/next', [PreRegistrationController::class, 'nextToRegistrasi'])->name('pendaftaran.step3.next');
 
 
 // =========================================================================
@@ -72,12 +62,40 @@ Route::get('/download-brosur', function () {
 
 
 // =========================================================================
-// 4. AUTHENTICATED ROUTES (Wajib Login)
+// 4. DASHBOARD — ROLE-BASED REDIRECT
 // =========================================================================
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    $user = Auth::user();
+
+    if ($user->isAdmin()) {
+        // Nanti redirect ke Filament admin panel
+        return redirect('/admin');
+    }
+
+    return redirect()->route('santri.dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+
+// =========================================================================
+// 5. SANTRI ROUTES
+// =========================================================================
+
+Route::middleware(['auth', 'verified'])
+    ->prefix('santri')
+    ->name('santri.')
+    ->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/profil', [DashboardController::class, 'profil'])->name('profil');
+        Route::get('/berkas', [DashboardController::class, 'berkas'])->name('berkas');
+        Route::get('/jadwal', [DashboardController::class, 'jadwal'])->name('jadwal');
+        Route::get('/setting', [DashboardController::class, 'setting'])->name('setting');
+    });
+
+
+// =========================================================================
+// 6. PROFILE ROUTES (Breeze existing — jangan diubah)
+// =========================================================================
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -87,6 +105,6 @@ Route::middleware('auth')->group(function () {
 
 
 // =========================================================================
-// 5. AUTH LOGIC (Breeze)
+// 7. AUTH LOGIC (Breeze)
 // =========================================================================
 require __DIR__.'/auth.php';
